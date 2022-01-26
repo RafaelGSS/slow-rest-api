@@ -1,12 +1,11 @@
 'use strict'
 
-const etag = require('./etag')
-const pkg = JSON.stringify(require('./package.json'))
+var http = require('http')
 
-const restify = require('restify')
-const server = restify.createServer()
+var etag = require('./etag')
+var pkg = JSON.stringify(require('./package.json'))
 
-function payload () {
+function payload (req, res) {
   const data = {
     a: Date.now() * Math.random(),
     b: Date.now() * Math.random(),
@@ -20,45 +19,50 @@ function payload () {
 
   delete data.d
   var val= 1
-
+  
   for (var i = 0; i < 100; i++) {
     val += data.g
   }
-
+  
   return '' + val
 }
 
-server.get('/a', function a (req, res, next) {
-  const tag = etag({ entity: pkg, algorithm: 'md5' })
+function a (req, res) {
+  var tag = etag({ entity: pkg, algorithm: 'md5' })
 
-  if (!(tag instanceof Error)) {
+  if (tag !== 'etag-error') {
     res.setHeader('ETag', tag)
   }
 
-  res.send(payload())
-  return next()
-})
+  res.end(payload())
+}
 
-server.get('/b', function b (req, res, next) {
-  const tag = etag({ entity: pkg, algorithm: 'sha256' })
+function b (req, res) {
+  var tag = etag({entity: pkg, algorithm: 'sha256'})
 
-  if (!(tag instanceof Error)) {
+  if (tag !== 'etag-error') {
     res.setHeader('ETag', tag)
   }
 
-  res.send(payload())
-  return next()
-})
+  res.end(payload())
+}
 
-server.get('/c', function c (req, res, next) {
-  const tag = etag({ entity: pkg, algorithm: 'sha512WithRsaEncryption' })
+function c (req, res) {
+  var tag = etag({ entity: pkg, algorithm: 'sha512WithRsaEncryption'})
 
-  if (!(tag instanceof Error)) {
+  if (tag !== 'etag-error') {
     res.setHeader('ETag', tag)
   }
 
-  res.send(payload())
-  return next()
-})
+  res.end(payload())
+}
 
-server.listen(3000)
+http.createServer(function (req, res) {
+  switch (true) {
+    case /\/a$/.test(req.url): return a(req, res)
+    case /\/b$/.test(req.url): return b(req, res)
+    case /\/c$/.test(req.url): return c(req, res)
+  }
+}).listen(3000)
+
+process.on('SIGINT', () => process.exit())
